@@ -16,6 +16,7 @@ Download, run and manage isolated Chrome and Chromium installations by version.
 
 | Command | Description |
 |---------|-------------|
+| `list local [chrome\|chromium\|all]` | List locally installed versions |
 | `list chrome [N]` | List latest N Chrome for Testing versions (v113+, default: 30) |
 | `list tags [N]` | List latest N Chrome tags from googlesource (v10+, default: 30) |
 | `list chromium [N]` | List latest N Chromium revisions (default: 30) |

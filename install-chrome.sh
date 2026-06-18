@@ -38,9 +38,10 @@ usage() {
 Usage: install-chrome.sh <command> [options]
 
 Commands:
-  list chrome [N]                 Latest N Chrome for Testing versions (v113+, default: 30)
-  list tags [N]                   Latest N Chrome tags from googlesource (v10+, default: 30)
-  list chromium [N]               Latest N Chromium revisions (default: 30)
+  list local [chrome|chromium]      List locally installed versions
+  list chrome [N]                 List latest N Chrome for Testing versions (v113+, default: 30)
+  list tags [N]                   List latest N Chrome tags from googlesource (v10+, default: 30)
+  list chromium [N]               List latest N Chromium revisions (default: 30)
   search chrome <ver> [N]         Search Chrome by version (e.g. "80", "80.0.3987")
   search chromium <rev> [N]       Search Chromium revisions matching pattern
   download chrome <version>       Download specific Chrome version (auto-selects source)
@@ -100,7 +101,58 @@ fetch_tags() {
     info "Cached $count version tags"
 }
 
-# --- Version tag listing ---
+list_local() {
+    local type="${1:-chrome}"
+    local base
+    case "$type" in
+        chrome)   base="$CHROME_BASE" ;;
+        chromium) base="$CHROMIUM_BASE" ;;
+        all)      _list_all_local; return ;;
+        *) die "Usage: list local chrome|chromium|all" ;;
+    esac
+
+    if [ ! -d "$base" ] || [ -z "$(ls -A "$base" 2>/dev/null)" ]; then
+        warn "No local $type versions installed"
+        return 0
+    fi
+
+    echo -e "\n${CYAN}Local $type installations:${NC}"
+    echo -e "${CYAN}------------------------------------------${NC}"
+    local i=1
+    for dir in "$base"/*/; do
+        [ -d "$dir" ] || continue
+        local name; name=$(basename "$dir")
+        local size; size=$(du -sh "$dir" 2>/dev/null | cut -f1)
+        printf "  %d. %s  (%s)\n" "$i" "$name" "$size"
+        i=$((i + 1))
+    done
+}
+
+_list_all_local() {
+    local found=0
+    for type in chrome chromium; do
+        local base
+        case "$type" in
+            chrome)   base="$CHROME_BASE" ;;
+            chromium) base="$CHROMIUM_BASE" ;;
+        esac
+        if [ -d "$base" ] && [ -n "$(ls -A "$base" 2>/dev/null)" ]; then
+            [ "$found" -eq 0 ] || echo
+            echo -e "\n${CYAN}Local $type installations:${NC}"
+            echo -e "${CYAN}------------------------------------------${NC}"
+            local i=1
+            for dir in "$base"/*/; do
+                [ -d "$dir" ] || continue
+                local name; name=$(basename "$dir")
+                local size; size=$(du -sh "$dir" 2>/dev/null | cut -f1)
+                printf "  %d. %s  (%s)\n" "$i" "$name" "$size"
+                i=$((i + 1))
+                found=1
+            done
+        fi
+    done
+    [ "$found" -eq 1 ] || warn "No local installations found"
+}
 
 list_tags() {
     local count="${1:-30}"
@@ -575,12 +627,13 @@ shift 2>/dev/null || true
 case "$cmd" in
     list)
         sub="${1:-chrome}"
-        count="${2:-30}"
+        val="${2:-30}"
         case "$sub" in
-            chrome)   list_chrome "$count" ;;
-            tags)     list_tags "$count" ;;
-            chromium) list_chromium "$count" ;;
-            *) die "Usage: list chrome|tags|chromium [N]" ;;
+            local)    list_local "$val" ;;
+            chrome)   list_chrome "$val" ;;
+            tags)     list_tags "$val" ;;
+            chromium) list_chromium "$val" ;;
+            *) die "Usage: list local|chrome|tags|chromium [N]" ;;
         esac
         ;;
     search)
