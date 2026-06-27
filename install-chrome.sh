@@ -478,25 +478,6 @@ install_chromium() {
     echo "$revision"
 }
 
-run_chromium() {
-    local input="$1"; shift
-    local revision
-
-    # Quick check if already downloaded as-is
-    if [ -f "$CHROMIUM_BASE/$input/chrome/chrome" ]; then
-        revision="$input"
-    else
-        revision=$(install_chromium "$input") || die "Failed to install chromium $input"
-    fi
-
-    local dest="$CHROMIUM_BASE/$revision"
-    local bin="$dest/chrome/chrome"
-    [ -f "$bin" ] || die "Something went wrong - binary not found at $bin"
-
-    info "Starting Chromium revision $revision ..."
-    exec "$bin" "--user-data-dir=$dest/user-data" "$@"
-}
-
 run_chrome() {
     local input="$1"; shift
     local version; version=$(_resolve_version "$input")
