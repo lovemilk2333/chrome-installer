@@ -162,7 +162,7 @@ function Test-VersionMatch {
 function Resolve-Version {
     param([string]$Ver)
     $Ver = Get-StripV $Ver
-    $dots = ($Ver.ToCharArray() | Where-Object { $_ -eq '.' }).Count
+    $dots = ($Ver -split '\.').Count - 1
     if ($dots -ge 3) { return $Ver }
 
     Get-FetchTags
@@ -343,31 +343,27 @@ function Get-CommitPosition {
 
     $tagUrl = "https://chromium.googlesource.com/chromium/src/+/refs/tags/$Version`?format=JSON"
     try {
-        $tagDataRaw = Invoke-RestMethod -Uri $tagUrl -UseBasicParsing -ErrorAction Stop
+        $tagDataRaw = (Invoke-WebRequest -Uri $tagUrl -UseBasicParsing -ErrorAction Stop).Content
     } catch {
         Write-Die "Version '$Version' not found in googlesource tags"
     }
-    $tagDataRaw = $tagDataRaw -replace "^.{5}", ''
+    # Strip leading ")]}'\n" JSON hijacking prefix
+    $tagDataRaw = $tagDataRaw -replace '^\)\]\}\''\r?\n', ''
+    $tagData = $tagDataRaw | ConvertFrom-Json
 
-    # Use .NET for reliable JSON parsing of googlesource format
-    Add-Type -AssemblyName System.Web.Extensions
-    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
-    $serializer.MaxJsonLength = 100MB
-    $tagData = $serializer.DeserializeObject($tagDataRaw)
-
-    $parent = $tagData['parents'][0]
+    $parent = @($tagData.parents)[0]
     if (-not $parent) { Write-Die "No parent commit found for tag $Version" }
 
     $parentUrl = "https://chromium.googlesource.com/chromium/src/+/$parent`?format=JSON"
     try {
-        $parentDataRaw = Invoke-RestMethod -Uri $parentUrl -UseBasicParsing -ErrorAction Stop
+        $parentDataRaw = (Invoke-WebRequest -Uri $parentUrl -UseBasicParsing -ErrorAction Stop).Content
     } catch {
         Write-Die "Failed to fetch parent commit $parent"
     }
-    $parentDataRaw = $parentDataRaw -replace "^.{5}", ''
-    $parentData = $serializer.DeserializeObject($parentDataRaw)
+    $parentDataRaw = $parentDataRaw -replace '^\)\]\}\''\r?\n', ''
+    $parentData = $parentDataRaw | ConvertFrom-Json
 
-    $message = $parentData['message']
+    $message = $parentData.message
     if (-not $message) { Write-Die "Could not determine commit position for Chrome $Version" }
 
     # Extract Cr-Branched-From position
